@@ -100,7 +100,7 @@
       chdir: /var/www/nextcloud/
       creates: /var/www/nextcloud/config/config.php
     register: setup_nc
-    #no_log: true
+    no_log: true
  
   - debug: var=setup_nc verbosity=2
   
@@ -157,22 +157,7 @@
       - background:cron
       - upgrade
       - db:add-missing-indices
-
-  - name: Install pexpect for next task (More database tuning)
-    pip:
-      name: pexpect
-
-  - name: More database tuning
-    become_user: "{{ web_user[ansible_distribution] }}"
-    become_flags: "{{ ansible_become_flags | default(omit) }}"
-    become: yes
-    expect:
-      command: php occ db:convert-filecache-bigint
-      timeout: 60
-      responses:
-        (.*)Continue with the conversion (y/n)? [n] (.*): y
-    args:
-      chdir: /var/www/nextcloud/
+      - db:convert-filecache-bigint --no-interaction
 
   - name: upgrade nextcloud
     become_user: "{{ web_user[ansible_distribution] }}"
