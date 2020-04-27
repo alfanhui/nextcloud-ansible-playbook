@@ -19,13 +19,47 @@
       remote_src: true
       creates: /var/www/nextcloud/occ
 
-  - name: set permissions
-    script: permissions.sh
-    environment:
-      FQDN:       "{{ fqdn }}"
-      NC_DATADIR: "{{ nc_datadir }}"
-      WEB_USER:   "{{ web_user[ansible_distribution] }}"
-      WEB_GROUP:  "{{ web_group[ansible_distribution] }}"
+
+######## Permissions.sh changes #########
+  - name: Change permissions on all files in /var/www/
+    shell: find /var/www/ -type f -print0 | xargs -0 chmod 0640
+  
+  - name: Change permissions on all directories in /var/www/
+    shell: find /var/www/ -type d -print0 | xargs -0 chmod 0750
+
+  - name: Change ownership and group on /var/www/
+    file:
+      path: /var/www/
+      owner: '{{ web_user[ansible_distribution] }}'
+      group: '{{ web_user[ansible_distribution] }}'
+      recurse: true
+
+  - name: Change ownership and group on /upload_tmp/
+    file:
+      path: /upload_tmp/
+      owner: '{{ web_user[ansible_distribution] }}'
+      group: '{{ web_user[ansible_distribution] }}'
+      recurse: true
+
+
+  - name: Change ownership and group on '{{ nc_datadir }}'
+    file:
+      path: "{{ nc_datadir }}"
+      owner: '{{ web_user[ansible_distribution] }}'
+      group: '{{ web_user[ansible_distribution] }}'
+      recurse: true
+
+  - name: Change permission on /var/www/nextcloud/.htaccess
+    file:
+      path: /var/www/nextcloud/.htaccess
+      mode: '0644'
+      
+  - name: Change permission on /var/www/nextcloud/.user.ini
+    file:
+      path: /var/www/nextcloud/.user.ini
+      mode: '0644'
+
+######## Permissions.sh end #########
 
   - name: include selinux tasks
     include_tasks: selinux.yml
@@ -52,7 +86,7 @@
     become_flags: "{{ ansible_become_flags | default(omit) }}"
     become: yes
     shell: >
-      php occ  maintenance:install 
+      php occ maintenance:install 
       --database {{ nc_db_type }} 
       --database-host "{{ nc_db_host }}" 
       --database-name {{ nc_db }} 
@@ -66,6 +100,7 @@
       chdir: /var/www/nextcloud/
       creates: /var/www/nextcloud/config/config.php
     register: setup_nc
+    #no_log: true
  
   - debug: var=setup_nc verbosity=2
   
@@ -122,8 +157,23 @@
       - background:cron
       - upgrade
       - db:add-missing-indices
-      - db:convert-filecache-bigint
-      
+
+  - name: Install pexpect for next task (More database tuning)
+    pip:
+      name: pexpect
+
+  - name: More database tuning
+    become_user: "{{ web_user[ansible_distribution] }}"
+    become_flags: "{{ ansible_become_flags | default(omit) }}"
+    become: yes
+    expect:
+      command: php occ db:convert-filecache-bigint
+      timeout: 60
+      responses:
+        (.*)Continue with the conversion (y/n)? [n] (.*): y
+    args:
+      chdir: /var/www/nextcloud/
+
   - name: upgrade nextcloud
     become_user: "{{ web_user[ansible_distribution] }}"
     become_flags: "{{ ansible_become_flags | default(omit) }}"

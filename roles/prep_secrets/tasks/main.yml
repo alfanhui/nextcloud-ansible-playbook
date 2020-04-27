@@ -5,7 +5,7 @@
   file: 
     name: '{{ credential_store }}'
     owner: root
-    group: "{{ ansible_env.SUDO_USER | default('root') }}"
+    group: root
     mode:  0775
     state: directory
   delegate_to: localhost

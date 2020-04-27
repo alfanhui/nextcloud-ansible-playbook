@@ -1,8 +1,10 @@
 #!/usr/bin/env ansible-playbook
 
 - name: 'install nextcloud'
-  hosts: nextcloud
-  become: true
+  hosts: server
+  vars:
+    ansible_port: 1654
+  become: yes
 
   roles:
     - { role: prep_ufw,         when: ansible_os_family == "Debian" or ansible_os_family == "Ubuntu" }
@@ -26,6 +28,5 @@
       debug:
         msg: 
           - "Your Nextcloud at https://{{ fqdn }} is ready."
-          - "Login with user: {{ nc_admin }} and password: {{ nc_passwd }} "
-          - "Other secrets you'll find in the directory {{ credential_store }} "
- 
+          - "Login with user: {{ nc_admin }} "
+          - "Secrets you'll find in the directory {{ credential_store }} "
